@@ -5,6 +5,7 @@ type Value = f64;
 
 struct Chunk {
     code: Vec<u8>,
+    lines: Vec<u64>,
     constants: Vec<Value>,
 }
 
@@ -12,6 +13,7 @@ impl Chunk {
     fn new() -> Self {
         Self {
             code: Vec::new(),
+            lines: Vec::new(),
             constants: Vec::new(),
         }
     }
@@ -21,8 +23,9 @@ impl Chunk {
         self.constants.len() - 1
     }
 
-    fn write_chunk(&mut self, byte: u8) {
+    fn write_chunk(&mut self, byte: u8, line: u64) {
         self.code.push(byte);
+        self.lines.push(line);
     }
 
     fn disassemble_chunk(&self, name: &str) {
@@ -36,6 +39,11 @@ impl Chunk {
 
     fn disassemble_instruction(&self, offset: usize) -> usize {
         print!("{:04} ", offset);
+        if offset > 0 && self.lines[offset] == self.lines[offset - 1] {
+            print!("   | ");
+        } else {
+            print!("{:4} ", self.lines[offset]);
+        }
 
         let instruction = self.code[offset];
         match instruction {
@@ -63,12 +71,9 @@ impl Chunk {
 
 fn main() {
     let mut chunk = Chunk::new();
-    let mut constant = chunk.add_constant(1.2);
-    chunk.write_chunk(OP_CONSTANT);
-    chunk.write_chunk(constant as u8);
-    chunk.write_chunk(OP_RETURN);
-    constant = chunk.add_constant(12345.0);
-    chunk.write_chunk(OP_CONSTANT);
-    chunk.write_chunk(constant as u8);
+    let constant = chunk.add_constant(1.2);
+    chunk.write_chunk(OP_CONSTANT, 123);
+    chunk.write_chunk(constant as u8, 123);
+    chunk.write_chunk(OP_RETURN, 123);
     chunk.disassemble_chunk("test chunk");
 }
