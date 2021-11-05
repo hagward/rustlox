@@ -69,11 +69,56 @@ impl Chunk {
     }
 }
 
+struct Vm {
+    chunk: Chunk,
+    ip: usize,
+}
+
+enum InterpretResult {
+    Ok,
+    CompileError,
+    RuntimeError,
+}
+
+impl Vm {
+    fn new(chunk: Chunk) -> Self {
+        Self { chunk, ip: 0 }
+    }
+
+    fn interpret(&mut self) -> InterpretResult {
+        loop {
+            #[cfg(feature = "DEBUG_TRACE_EXECUTION")]
+            self.chunk.disassemble_instruction(self.ip);
+            let instruction = self.read_byte();
+            match instruction {
+                OP_CONSTANT => {
+                    let constant = self.read_constant();
+                    println!("{}", constant);
+                }
+                OP_RETURN => return InterpretResult::Ok,
+                _ => println!("Unhandled instruction: {}", instruction),
+            }
+        }
+    }
+
+    fn read_constant(&mut self) -> Value {
+        let byte = self.read_byte();
+        self.chunk.constants[byte as usize]
+    }
+
+    fn read_byte(&mut self) -> u8 {
+        let byte = self.chunk.code[self.ip];
+        self.ip += 1;
+        byte
+    }
+}
+
 fn main() {
     let mut chunk = Chunk::new();
     let constant = chunk.add_constant(1.2);
     chunk.write_chunk(OP_CONSTANT, 123);
     chunk.write_chunk(constant as u8, 123);
     chunk.write_chunk(OP_RETURN, 123);
-    chunk.disassemble_chunk("test chunk");
+    let mut vm = Vm::new(chunk);
+    vm.interpret();
 }
