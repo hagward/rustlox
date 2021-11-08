@@ -1,5 +1,10 @@
 const OP_CONSTANT: u8 = 0;
-const OP_RETURN: u8 = 1;
+const OP_ADD: u8 = 1;
+const OP_SUBTRACT: u8 = 2;
+const OP_MULTIPLY: u8 = 3;
+const OP_DIVIDE: u8 = 4;
+const OP_NEGATE: u8 = 5;
+const OP_RETURN: u8 = 6;
 
 type Value = f64;
 
@@ -48,6 +53,11 @@ impl Chunk {
         let instruction = self.code[offset];
         match instruction {
             OP_CONSTANT => self.constant_instruction("OP_CONSTANT", offset),
+            OP_ADD => self.simple_instruction("OP_ADD", offset),
+            OP_SUBTRACT => self.simple_instruction("OP_SUBTRACT", offset),
+            OP_MULTIPLY => self.simple_instruction("OP_MULTIPLY", offset),
+            OP_DIVIDE => self.simple_instruction("OP_DIVIDE", offset),
+            OP_NEGATE => self.simple_instruction("OP_NEGATE", offset),
             OP_RETURN => self.simple_instruction("OP_RETURN", offset),
             _ => {
                 println!("Unknown opcode {}", instruction);
@@ -69,41 +79,76 @@ impl Chunk {
     }
 }
 
-struct Vm {
-    chunk: Chunk,
-    ip: usize,
-}
-
 enum InterpretResult {
     Ok,
     CompileError,
     RuntimeError,
 }
 
+struct Vm {
+    chunk: Chunk,
+    ip: usize,
+    stack: Vec<Value>,
+}
+
 impl Vm {
     fn new(chunk: Chunk) -> Self {
-        Self { chunk, ip: 0 }
+        Self {
+            chunk,
+            ip: 0,
+            stack: Vec::new(),
+        }
     }
 
     fn interpret(&mut self) -> InterpretResult {
         loop {
-            #[cfg(feature = "DEBUG_TRACE_EXECUTION")]
+            println!("{:?}", self.stack);
             self.chunk.disassemble_instruction(self.ip);
+
             let instruction = self.read_byte();
             match instruction {
                 OP_CONSTANT => {
                     let constant = self.read_constant();
-                    println!("{}", constant);
+                    self.stack.push(constant);
                 }
-                OP_RETURN => return InterpretResult::Ok,
+                OP_ADD => {
+                    let b = self.stack.pop().unwrap();
+                    let a = self.stack.pop().unwrap();
+                    self.stack.push(a + b);
+                }
+                OP_SUBTRACT => {
+                    let b = self.stack.pop().unwrap();
+                    let a = self.stack.pop().unwrap();
+                    self.stack.push(a - b);
+                }
+                OP_MULTIPLY => {
+                    let b = self.stack.pop().unwrap();
+                    let a = self.stack.pop().unwrap();
+                    self.stack.push(a * b);
+                }
+                OP_DIVIDE => {
+                    let b = self.stack.pop().unwrap();
+                    let a = self.stack.pop().unwrap();
+                    self.stack.push(a / b);
+                }
+                OP_NEGATE => {
+                    let value = self.stack.pop().unwrap();
+                    self.stack.push(-value);
+                }
+                OP_RETURN => {
+                    println!("{}", self.stack.pop().unwrap());
+                    return InterpretResult::Ok;
+                }
                 _ => println!("Unhandled instruction: {}", instruction),
             }
         }
     }
 
+    fn binary_op(&mut self, op: u8) {}
+
     fn read_constant(&mut self) -> Value {
-        let byte = self.read_byte();
-        self.chunk.constants[byte as usize]
+        let index = self.read_byte();
+        self.chunk.constants[index as usize]
     }
 
     fn read_byte(&mut self) -> u8 {
@@ -115,10 +160,26 @@ impl Vm {
 
 fn main() {
     let mut chunk = Chunk::new();
-    let constant = chunk.add_constant(1.2);
+
+    let mut constant = chunk.add_constant(1.2);
     chunk.write_chunk(OP_CONSTANT, 123);
     chunk.write_chunk(constant as u8, 123);
+
+    constant = chunk.add_constant(3.4);
+    chunk.write_chunk(OP_CONSTANT, 123);
+    chunk.write_chunk(constant as u8, 123);
+
+    chunk.write_chunk(OP_ADD, 123);
+
+    constant = chunk.add_constant(5.6);
+    chunk.write_chunk(OP_CONSTANT, 123);
+    chunk.write_chunk(constant as u8, 123);
+
+    chunk.write_chunk(OP_DIVIDE, 123);
+    chunk.write_chunk(OP_NEGATE, 123);
+
     chunk.write_chunk(OP_RETURN, 123);
+
     let mut vm = Vm::new(chunk);
     vm.interpret();
 }
