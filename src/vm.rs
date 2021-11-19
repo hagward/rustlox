@@ -26,41 +26,40 @@ impl Vm {
             println!("{:?}", self.stack);
             self.chunk.disassemble_instruction(self.ip);
 
-            let instruction = self.read_byte();
-            match instruction {
-                OP_CONSTANT => {
+            let opcode: OpCode = self.read_byte().into();
+            match opcode {
+                OpCode::Constant => {
                     let constant = self.read_constant();
                     self.stack.push(constant);
                 }
-                OP_ADD => {
+                OpCode::Add => {
                     let b = self.stack.pop().unwrap();
                     let a = self.stack.pop().unwrap();
                     self.stack.push(a + b);
                 }
-                OP_SUBTRACT => {
+                OpCode::Subtract => {
                     let b = self.stack.pop().unwrap();
                     let a = self.stack.pop().unwrap();
                     self.stack.push(a - b);
                 }
-                OP_MULTIPLY => {
+                OpCode::Multiply => {
                     let b = self.stack.pop().unwrap();
                     let a = self.stack.pop().unwrap();
                     self.stack.push(a * b);
                 }
-                OP_DIVIDE => {
+                OpCode::Divide => {
                     let b = self.stack.pop().unwrap();
                     let a = self.stack.pop().unwrap();
                     self.stack.push(a / b);
                 }
-                OP_NEGATE => {
+                OpCode::Negate => {
                     let value = self.stack.pop().unwrap();
                     self.stack.push(-value);
                 }
-                OP_RETURN => {
+                OpCode::Return => {
                     println!("{}", self.stack.pop().unwrap());
                     return InterpretResult::Ok;
                 }
-                _ => println!("Unhandled instruction: {}", instruction),
             }
         }
     }

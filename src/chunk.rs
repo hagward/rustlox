@@ -1,10 +1,30 @@
-pub const OP_CONSTANT: u8 = 0;
-pub const OP_ADD: u8 = 1;
-pub const OP_SUBTRACT: u8 = 2;
-pub const OP_MULTIPLY: u8 = 3;
-pub const OP_DIVIDE: u8 = 4;
-pub const OP_NEGATE: u8 = 5;
-pub const OP_RETURN: u8 = 6;
+use std::convert::Into;
+
+#[derive(Debug)]
+pub enum OpCode {
+    Constant,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Negate,
+    Return,
+}
+
+impl From<u8> for OpCode {
+    fn from(opcode: u8) -> Self {
+        match opcode {
+            0 => OpCode::Constant,
+            1 => OpCode::Add,
+            2 => OpCode::Subtract,
+            3 => OpCode::Multiply,
+            4 => OpCode::Divide,
+            5 => OpCode::Negate,
+            6 => OpCode::Return,
+            _ => panic!("Unknown opcode: {}", opcode),
+        }
+    }
+}
 
 pub type Value = f64;
 
@@ -50,19 +70,15 @@ impl Chunk {
             print!("{:4} ", self.lines[offset]);
         }
 
-        let instruction = self.code[offset];
-        match instruction {
-            OP_CONSTANT => self.constant_instruction("OP_CONSTANT", offset),
-            OP_ADD => self.simple_instruction("OP_ADD", offset),
-            OP_SUBTRACT => self.simple_instruction("OP_SUBTRACT", offset),
-            OP_MULTIPLY => self.simple_instruction("OP_MULTIPLY", offset),
-            OP_DIVIDE => self.simple_instruction("OP_DIVIDE", offset),
-            OP_NEGATE => self.simple_instruction("OP_NEGATE", offset),
-            OP_RETURN => self.simple_instruction("OP_RETURN", offset),
-            _ => {
-                println!("Unknown opcode {}", instruction);
-                offset + 1
-            }
+        let opcode: OpCode = self.code[offset].into();
+        match opcode {
+            OpCode::Constant => self.constant_instruction("OP_CONSTANT", offset),
+            OpCode::Add => self.simple_instruction("OP_ADD", offset),
+            OpCode::Subtract => self.simple_instruction("OP_SUBTRACT", offset),
+            OpCode::Multiply => self.simple_instruction("OP_MULTIPLY", offset),
+            OpCode::Divide => self.simple_instruction("OP_DIVIDE", offset),
+            OpCode::Negate => self.simple_instruction("OP_NEGATE", offset),
+            OpCode::Return => self.simple_instruction("OP_RETURN", offset),
         }
     }
 
