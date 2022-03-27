@@ -1,31 +1,66 @@
 mod chunk;
+mod compiler;
+mod scanner;
 mod vm;
 
 use chunk::*;
+use compiler::*;
+use std::env;
+use std::fs;
+use std::io::{self, Write};
+use std::process;
 use vm::*;
 
 fn main() {
-    let mut chunk = Chunk::new();
+    let argv = env::args().collect::<Vec<String>>();
+    let argc = argv.len();
+    match argc {
+        1 => {
+            repl();
+        }
+        2 => {
+            run_file(&argv[1]);
+        }
+        _ => {
+            eprintln!("Usage: rustlox [path]");
+            process::exit(64);
+        }
+    }
+    println!("num args: {}", argc);
+    for arg in argv {
+        println!("arg: {}", arg);
+    }
+}
 
-    let mut constant = chunk.add_constant(1.2);
-    chunk.write_chunk(OP_CONSTANT, 123);
-    chunk.write_chunk(constant as u8, 123);
+fn repl() {
+    let mut buffer = String::new();
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+    loop {
+        print!("> ");
+        stdout.flush().unwrap();
+        buffer.clear();
+        stdin.read_line(&mut buffer).unwrap();
+        interpret(&buffer);
+    }
+}
 
-    constant = chunk.add_constant(3.4);
-    chunk.write_chunk(OP_CONSTANT, 123);
-    chunk.write_chunk(constant as u8, 123);
+fn run_file(path: &str) {
+    let source = fs::read_to_string(path).expect("Couldn't read source file");
+    let result = interpret(&source);
 
-    chunk.write_chunk(OP_ADD, 123);
+    match result {
+        InterpretResult::CompileError => {
+            process::exit(65);
+        }
+        InterpretResult::RuntimeError => {
+            process::exit(70);
+        }
+        _ => {}
+    }
+}
 
-    constant = chunk.add_constant(5.6);
-    chunk.write_chunk(OP_CONSTANT, 123);
-    chunk.write_chunk(constant as u8, 123);
-
-    chunk.write_chunk(OP_DIVIDE, 123);
-    chunk.write_chunk(OP_NEGATE, 123);
-
-    chunk.write_chunk(OP_RETURN, 123);
-
-    let mut vm = Vm::new(chunk);
-    vm.interpret();
+fn interpret(source: &str) -> InterpretResult {
+    compile(source);
+    InterpretResult::Ok
 }
