@@ -1,79 +1,75 @@
-pub struct Scanner<'a> {
-    source_str: &'a str,
-    source: Vec<char>,
+pub struct Scanner {
     start: usize,
     current: usize,
     line: usize,
 }
 
-impl<'a> Scanner<'a> {
-    pub fn new(source: &'a str) -> Self {
+impl Scanner {
+    pub fn new() -> Self {
         Scanner {
-            source_str: source,
-            source: source.chars().collect(),
             start: 0,
             current: 0,
             line: 1,
         }
     }
 
-    pub fn scan_token(&mut self) -> Token {
-        self.skip_whitespace();
+    pub fn scan_token(&mut self, source: &[u8]) -> Token {
+        self.skip_whitespace(source);
 
         self.start = self.current;
 
-        if self.is_at_end() {
+        if self.is_at_end(source) {
             return self.make_token(TokenType::Eof);
         }
 
-        match self.advance() {
-            '(' => self.make_token(TokenType::LeftParen),
-            ')' => self.make_token(TokenType::RightParen),
-            '{' => self.make_token(TokenType::LeftBrace),
-            '}' => self.make_token(TokenType::RightBrace),
-            ';' => self.make_token(TokenType::Semicolon),
-            ',' => self.make_token(TokenType::Comma),
-            '.' => self.make_token(TokenType::Dot),
-            '-' => self.make_token(TokenType::Minus),
-            '+' => self.make_token(TokenType::Plus),
-            '/' => self.make_token(TokenType::Slash),
-            '*' => self.make_token(TokenType::Star),
-            '!' => {
-                let token_type = if self.accept('=') { TokenType::BangEqual } else { TokenType::Bang };
+        match self.advance(source) {
+            b'(' => self.make_token(TokenType::LeftParen),
+            b')' => self.make_token(TokenType::RightParen),
+            b'{' => self.make_token(TokenType::LeftBrace),
+            b'}' => self.make_token(TokenType::RightBrace),
+            b';' => self.make_token(TokenType::Semicolon),
+            b',' => self.make_token(TokenType::Comma),
+            b'.' => self.make_token(TokenType::Dot),
+            b'-' => self.make_token(TokenType::Minus),
+            b'+' => self.make_token(TokenType::Plus),
+            b'/' => self.make_token(TokenType::Slash),
+            b'*' => self.make_token(TokenType::Star),
+            b'!' => {
+                let token_type = if self.accept(source, b'=') { TokenType::BangEqual } else { TokenType::Bang };
                 self.make_token(token_type)
             },
-            '=' => {
-                let token_type = if self.accept('=') { TokenType::EqualEqual } else { TokenType::Equal };
+            b'=' => {
+                let token_type = if self.accept(source, b'=') { TokenType::EqualEqual } else { TokenType::Equal };
                 self.make_token(token_type)
             },
-            '<' => {
-                let token_type = if self.accept('=') { TokenType::LessEqual } else { TokenType::Less };
+            b'<' => {
+                let token_type = if self.accept(source, b'=') { TokenType::LessEqual } else { TokenType::Less };
                 self.make_token(token_type)
             },
-            '>' => {
-                let token_type = if self.accept('=') { TokenType::GreaterEqual } else { TokenType::Greater };
+            b'>' => {
+                let token_type = if self.accept(source, b'=') { TokenType::GreaterEqual } else { TokenType::Greater };
                 self.make_token(token_type)
             },
-            '"' => self.string(),
-            c if Scanner::is_alpha(c) => self.identifier(),
-            c if c.is_ascii_digit() => self.number(),
+            b'"' => self.string(source),
+            c if Scanner::is_alpha(c) => self.identifier(source),
+            c if c.is_ascii_digit() => self.number(source),
             _ => self.error_token(),
         }
     }
-    
-    fn skip_whitespace(&mut self) {
+
+    fn skip_whitespace(&mut self, source: &[u8]) {
         loop {
-            match self.peek() {
-                Some(' ' | '\r' | '\t') => {
-                    self.advance();
+            match self.peek(source) {
+                Some(b' ' | b'\r' | b'\t') => {
+                    self.advance(source);
                 },
-                Some('\n') => {
+                Some(b'\n') => {
                     self.line += 1;
-                    self.advance();
+                    self.advance(source);
                 },
-                Some('/') if self.peek_next() == Some('/') => {
-                    while self.peek() != Some('\n') && !self.is_at_end() {
-                        self.advance();
+                Some(b'/') if self.peek_next(source) == Some(b'/') => {
+                    while self.peek(source) != Some(b'\n') && !self.is_at_end(source) {
+                        self.advance(source);
                     }
                 },
                 _ => {
@@ -83,122 +79,122 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn identifier(&mut self) -> Token {
-        while self.peek().filter(|c| Scanner::is_alpha(*c) || c.is_ascii_digit()).is_some() {
-            self.advance();
+    fn identifier(&mut self, source: &[u8]) -> Token {
+        while self.peek(source).filter(|c| Scanner::is_alpha(*c) || c.is_ascii_digit()).is_some() {
+            self.advance(source);
         }
 
-        self.make_token(self.identifier_type())
+        self.make_token(self.identifier_type(source))
     }
 
-    fn identifier_type(&self) -> TokenType {
-        match self.source[self.start] {
-            'a' => self.check_keyword(1, "nd", TokenType::And),
-            'c' => self.check_keyword(1, "lass", TokenType::Class),
-            'e' => self.check_keyword(1, "lse", TokenType::Else),
-            'f' if self.current - self.start > 1 => match self.source[self.start + 1] {
-                'a' => self.check_keyword(2, "lse", TokenType::False),
-                'o' => self.check_keyword(2, "r", TokenType::For),
-                'u' => self.check_keyword(2, "n", TokenType::Fun),
+    fn identifier_type(&self, source: &[u8]) -> TokenType {
+        match source[self.start] {
+            b'a' => self.check_keyword(source, 1, "nd", TokenType::And),
+            b'c' => self.check_keyword(source, 1, "lass", TokenType::Class),
+            b'e' => self.check_keyword(source, 1, "lse", TokenType::Else),
+            b'f' if self.current - self.start > 1 => match source[self.start + 1] {
+                b'a' => self.check_keyword(source, 2, "lse", TokenType::False),
+                b'o' => self.check_keyword(source, 2, "r", TokenType::For),
+                b'u' => self.check_keyword(source, 2, "n", TokenType::Fun),
                 _ => TokenType::Identifier
             }
-            'i' => self.check_keyword(1, "f", TokenType::If),
-            'n' => self.check_keyword(1, "il", TokenType::Nil),
-            'o' => self.check_keyword(1, "r", TokenType::Or),
-            'p' => self.check_keyword(1, "rint", TokenType::Print),
-            'r' => self.check_keyword(1, "eturn", TokenType::Return),
-            's' => self.check_keyword(1, "uper", TokenType::Super),
-            't' if self.current - self.start > 1 => match self.source[self.start + 1] {
-                'h' => self.check_keyword(2, "is", TokenType::This),
-                'r' => self.check_keyword(2, "ue", TokenType::True),
+            b'i' => self.check_keyword(source, 1, "f", TokenType::If),
+            b'n' => self.check_keyword(source, 1, "il", TokenType::Nil),
+            b'o' => self.check_keyword(source, 1, "r", TokenType::Or),
+            b'p' => self.check_keyword(source, 1, "rint", TokenType::Print),
+            b'r' => self.check_keyword(source, 1, "eturn", TokenType::Return),
+            b's' => self.check_keyword(source, 1, "uper", TokenType::Super),
+            b't' if self.current - self.start > 1 => match source[self.start + 1] {
+                b'h' => self.check_keyword(source, 2, "is", TokenType::This),
+                b'r' => self.check_keyword(source, 2, "ue", TokenType::True),
                 _ => TokenType::Identifier
             }
-            'v' => self.check_keyword(1, "ar", TokenType::Var),
-            'w' => self.check_keyword(1, "hile", TokenType::While),
+            b'v' => self.check_keyword(source, 1, "ar", TokenType::Var),
+            b'w' => self.check_keyword(source, 1, "hile", TokenType::While),
             _ => TokenType::Identifier
         }
     }
 
-    fn check_keyword(&self, start: usize, rest: &'static str, token_type: TokenType) -> TokenType {
-        if self.current - self.start == start + rest.len() && &self.source_str[self.start + start..self.start + start + rest.len()] == rest {
+    fn check_keyword(&self, source: &[u8], start: usize, rest: &'static str, token_type: TokenType) -> TokenType {
+        if self.current - self.start == start + rest.len() && &source[self.start + start..self.start + start + rest.len()] == rest.as_bytes() {
             return token_type;
         }
 
         TokenType::Identifier
     }
 
-    fn string(&mut self) -> Token {
-        while let Some(c) = self.peek() {
-            if c == '"' { break; }
-            if c == '\n' {
+    fn string(&mut self, source: &[u8]) -> Token {
+        while let Some(c) = self.peek(source) {
+            if c == b'"' { break; }
+            if c == b'\n' {
                 self.line += 1;
             }
-            self.advance();
+            self.advance(source);
         }
 
-        if self.is_at_end() {
+        if self.is_at_end(source) {
             return self.error_token();
         }
 
         // The closing quote.
-        self.advance();
+        self.advance(source);
         self.make_token(TokenType::String)
     }
 
-    fn number(&mut self) -> Token {
-        while self.peek().filter(|c| c.is_ascii_digit()).is_some() {
-            self.advance();
+    fn number(&mut self, source: &[u8]) -> Token {
+        while self.peek(source).filter(|c| c.is_ascii_digit()).is_some() {
+            self.advance(source);
         }
 
         // Look for a fractional part.
-        if self.peek() == Some('.') && self.peek_next().filter(|c| c.is_ascii_digit()).is_some() {
+        if self.peek(source) == Some(b'.') && self.peek_next(source).filter(|c| c.is_ascii_digit()).is_some() {
             // Consume the ".".
-            self.advance();
+            self.advance(source);
 
-            while self.peek().filter(|c| c.is_ascii_digit()).is_some() {
-                self.advance();
+            while self.peek(source).filter(|c| c.is_ascii_digit()).is_some() {
+                self.advance(source);
             }
         }
 
         self.make_token(TokenType::Number)
     }
 
-    fn is_alpha(c: char) -> bool {
-        c == '_' || c.is_ascii_alphabetic()
-    }
-
-    fn peek(&self) -> Option<char> {
-        if self.is_at_end() {
-            return None;
-        }
-        Some(self.source[self.current])
-    }
-
-    fn peek_next(&self) -> Option<char> {
-        if self.current + 1 >= self.source.len() {
-            return None;
-        }
-        Some(self.source[self.current + 1])
-    }
-
-    fn advance(&mut self) -> char {
+    fn advance(&mut self, source: &[u8]) -> u8 {
         self.current += 1;
-        self.source[self.current - 1]
+        source[self.current - 1]
     }
 
-    fn accept(&mut self, expected: char) -> bool {
-        if self.is_at_end() {
+    fn is_alpha(c: u8) -> bool {
+        c == b'_' || c.is_ascii_alphabetic()
+    }
+
+    fn peek(&self, source: &[u8]) -> Option<u8> {
+        if self.is_at_end(source) {
+            return None;
+        }
+        Some(source[self.current])
+    }
+
+    fn peek_next(&self, source: &[u8]) -> Option<u8> {
+        if self.current + 1 >= source.len() {
+            return None;
+        }
+        Some(source[self.current + 1])
+    }
+
+    fn accept(&mut self, source: &[u8], expected: u8) -> bool {
+        if self.is_at_end(source) {
             return false;
         }
-        if self.source[self.current] != expected {
+        if source[self.current] != expected {
             return false;
         }
         self.current += 1;
         true
     }
 
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
+    fn is_at_end(&self, source: &[u8]) -> bool {
+        self.current >= source.len()
     }
 
     fn make_token(&self, token_type: TokenType) -> Token {
@@ -227,7 +223,7 @@ pub struct Token {
     pub line: usize,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen, RightParen,

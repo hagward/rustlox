@@ -1,14 +1,13 @@
-use std::convert::Into;
-
 #[derive(Debug)]
+#[repr(u8)]
 pub enum OpCode {
-    Constant,
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Negate,
-    Return,
+    Constant = 0,
+    Add = 1,
+    Subtract = 2,
+    Multiply = 3,
+    Divide = 4,
+    Negate = 5,
+    Return = 6,
 }
 
 impl From<u8> for OpCode {
@@ -21,7 +20,7 @@ impl From<u8> for OpCode {
             4 => OpCode::Divide,
             5 => OpCode::Negate,
             6 => OpCode::Return,
-            _ => panic!("Unknown opcode: {}", opcode),
+            _ => panic!("Unknown opcode: {opcode}"),
         }
     }
 }
@@ -30,7 +29,7 @@ pub type Value = f64;
 
 pub struct Chunk {
     pub code: Vec<u8>,
-    lines: Vec<u64>,
+    lines: Vec<usize>,
     pub constants: Vec<Value>,
 }
 
@@ -48,11 +47,13 @@ impl Chunk {
         self.constants.len() - 1
     }
 
-    pub fn write_chunk(&mut self, byte: u8, line: u64) {
+    pub fn write_chunk(&mut self, byte: u8, line: usize) {
         self.code.push(byte);
         self.lines.push(line);
     }
 
+    // TODO: Call this from behind a debug flag, somehow.
+    //       https://craftinginterpreters.com/compiling-expressions.html#dumping-chunks
     fn disassemble_chunk(&self, name: &str) {
         println!("== {} ==", name);
 

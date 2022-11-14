@@ -3,8 +3,6 @@ mod compiler;
 mod scanner;
 mod vm;
 
-use chunk::*;
-use compiler::*;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -33,6 +31,7 @@ fn main() {
 }
 
 fn repl() {
+    let mut vm = Vm::new();
     let mut buffer = String::new();
     let stdin = io::stdin();
     let mut stdout = io::stdout();
@@ -41,13 +40,13 @@ fn repl() {
         stdout.flush().unwrap();
         buffer.clear();
         stdin.read_line(&mut buffer).unwrap();
-        interpret(&buffer);
+        vm.interpret(buffer.clone());
     }
 }
 
 fn run_file(path: &str) {
     let source = fs::read_to_string(path).expect("Couldn't read source file");
-    let result = interpret(&source);
+    let result = Vm::new().interpret(source);
 
     match result {
         InterpretResult::CompileError => {
@@ -58,9 +57,4 @@ fn run_file(path: &str) {
         }
         _ => {}
     }
-}
-
-fn interpret(source: &str) -> InterpretResult {
-    compile(source);
-    InterpretResult::Ok
 }

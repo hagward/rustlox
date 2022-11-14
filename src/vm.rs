@@ -1,4 +1,4 @@
-use crate::chunk::*;
+use crate::{chunk::*, compiler::Compiler};
 
 pub enum InterpretResult {
     Ok,
@@ -7,29 +7,36 @@ pub enum InterpretResult {
 }
 
 pub struct Vm {
-    chunk: Chunk,
     ip: usize,
     stack: Vec<Value>,
 }
 
 impl Vm {
-    pub fn new(chunk: Chunk) -> Self {
+    pub fn new() -> Self {
         Self {
-            chunk,
             ip: 0,
             stack: Vec::new(),
         }
     }
 
-    pub fn interpret(&mut self) -> InterpretResult {
+    pub fn interpret(&mut self, source: String) -> InterpretResult {
+        if let Ok(chunk) = Compiler::compile(source) {
+            self.ip = 0;
+            return self.run(&chunk);
+        }
+
+        InterpretResult::CompileError
+    }
+
+    fn run(&mut self, chunk: &Chunk) -> InterpretResult {
         loop {
             println!("{:?}", self.stack);
-            self.chunk.disassemble_instruction(self.ip);
+            chunk.disassemble_instruction(self.ip);
 
-            let opcode: OpCode = self.read_byte().into();
+            let opcode: OpCode = self.read_byte(chunk).into();
             match opcode {
                 OpCode::Constant => {
-                    let constant = self.read_constant();
+                    let constant = self.read_constant(chunk);
                     self.stack.push(constant);
                 }
                 OpCode::Add => {
@@ -64,13 +71,13 @@ impl Vm {
         }
     }
 
-    fn read_constant(&mut self) -> Value {
-        let index = self.read_byte();
-        self.chunk.constants[index as usize]
+    fn read_constant(&mut self, chunk: &Chunk) -> Value {
+        let index = self.read_byte(chunk);
+        chunk.constants[index as usize]
     }
 
-    fn read_byte(&mut self) -> u8 {
-        let byte = self.chunk.code[self.ip];
+    fn read_byte(&mut self, chunk: &Chunk) -> u8 {
+        let byte = chunk.code[self.ip];
         self.ip += 1;
         byte
     }
